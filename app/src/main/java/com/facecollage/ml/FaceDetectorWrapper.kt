@@ -43,8 +43,8 @@ class FaceDetectorWrapper @Inject constructor(
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
-            .setMinFaceSize(0.08f)
+             .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
+            .setMinFaceSize(0.03f)
             .enableTracking()
             .build()
     )
@@ -53,14 +53,16 @@ class FaceDetectorWrapper @Inject constructor(
      * Detects all valid faces in [frame] at timestamp [frameMs].
      * Returns an empty list when the frame is a whip-pan or all faces score below 0.15.
      */
-    suspend fun detectFaces(frame: Bitmap, frameMs: Long): List<DetectedFace> =
+    suspend fun detectFaces(frame: Bitmap, frameMs: Long, rotation: Int = 0): List<DetectedFace> =
         suspendCancellableCoroutine { cont ->
-            val image = InputImage.fromBitmap(frame, 0)
+            val image = InputImage.fromBitmap(frame, rotation)
             detector.process(image)
                 .addOnSuccessListener { faces ->
+
                     val results = faces.mapNotNull { face ->
                         buildDetectedFace(face, frame, frameMs)
-                    }.filter { it.score.composite >= 0.15f }
+                    }.filter { it.score.composite >= 0.05f }
+
                     cont.resume(results)
                 }
                 .addOnFailureListener { cont.resumeWithException(it) }
@@ -84,11 +86,14 @@ class FaceDetectorWrapper @Inject constructor(
         val faceH = (bottom - top).toInt()
         if (faceW < 40 || faceH < 40) return null   // too small to embed reliably
 
+
         val faceCrop = try {
             Bitmap.createBitmap(frame, left.toInt(), top.toInt(), faceW, faceH)
         } catch (e: Exception) { return null }
 
         val quality   = scoreFace(face, frame, faceCrop)
+
+
         val embedding = embedder.embed(faceCrop)
         faceCrop.recycle()
 

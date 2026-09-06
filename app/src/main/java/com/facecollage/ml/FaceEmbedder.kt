@@ -28,7 +28,7 @@ class FaceEmbedder @Inject constructor(
 ) {
     companion object {
         private const val MODEL_FILE   = "mobilefacenet.tflite"
-        const val INPUT_SIZE           = 112
+        const val INPUT_SIZE           = 160
         const val EMBEDDING_DIM        = 128
     }
 

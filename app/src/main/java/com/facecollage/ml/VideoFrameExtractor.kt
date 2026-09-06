@@ -32,9 +32,9 @@ class VideoFrameExtractor @Inject constructor(
 ) {
     companion object {
         /** Frames per second to sample. */
-        const val SAMPLE_FPS = 5
+        const val SAMPLE_FPS = 15
         /** Maximum bitmap dimension (width or height) after scaling. */
-        const val MAX_DIM    = 960
+        const val MAX_DIM    = 1280
     }
 
     data class VideoInfo(val durationMs: Long, val width: Int, val height: Int)
@@ -43,6 +43,7 @@ class VideoFrameExtractor @Inject constructor(
     fun getVideoInfo(uri: Uri): VideoInfo {
         val retriever = MediaMetadataRetriever()
         retriever.setDataSource(context, uri)
+
         val durationMs = retriever
             .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             ?.toLongOrNull() ?: 0L
@@ -61,11 +62,14 @@ class VideoFrameExtractor @Inject constructor(
      * Runs on [Dispatchers.IO].
      * Respects coroutine cancellation — exits cleanly if the job is cancelled.
      */
-    fun extractFrames(uri: Uri, samplingFps: Int = SAMPLE_FPS): Flow<Pair<Bitmap, Long>> =
+    fun extractFrames(uri: Uri, samplingFps: Int = SAMPLE_FPS): Flow<Triple<Bitmap, Long, Int>> =
         flow {
             val retriever = MediaMetadataRetriever()
             try {
                 retriever.setDataSource(context, uri)
+                val rotation = retriever
+                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                    ?.toIntOrNull() ?: 0
                 val durationMs = retriever
                     .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: return@flow
@@ -76,12 +80,12 @@ class VideoFrameExtractor @Inject constructor(
                 while (timeMs <= durationMs && coroutineContext.isActive) {
                     val frame = retriever.getFrameAtTime(
                         timeMs * 1000L,
-                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
+                        MediaMetadataRetriever.OPTION_CLOSEST
                     )
                     if (frame != null) {
                         val scaled = scaleBitmap(frame, MAX_DIM)
                         if (scaled !== frame) frame.recycle()
-                        emit(Pair(scaled, timeMs))
+                        emit(Triple(scaled, timeMs, rotation))
                     }
                     timeMs += stepMs
                 }

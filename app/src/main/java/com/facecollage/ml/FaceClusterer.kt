@@ -30,7 +30,7 @@ class FaceClusterer @Inject constructor() {
 
     companion object {
         /** Cosine-distance threshold for same-person classification. */
-        const val SIMILARITY_THRESHOLD = 0.40f
+        const val SIMILARITY_THRESHOLD = 0.25f
 
         /** Minimum detections to form a valid person cluster. */
         private const val MIN_PTS = 2
@@ -123,10 +123,19 @@ class FaceClusterer @Inject constructor() {
     }
 
     /** Returns indices of all faces within [SIMILARITY_THRESHOLD] cosine distance of faces[idx]. */
-    private fun regionQuery(faces: List<DetectedFace>, idx: Int): List<Int> =
-        faces.indices.filter { j ->
-            j != idx && cosineDistance(faces[idx].embedding, faces[j].embedding) <= SIMILARITY_THRESHOLD
+    private fun regionQuery(faces: List<DetectedFace>, idx: Int): List<Int> {
+        val result = mutableListOf<Int>()
+        for (j in faces.indices) {
+            if (j != idx) {
+                val dist = cosineDistance(faces[idx].embedding, faces[j].embedding)
+                if (idx < 3) { // only log first 3 faces to avoid spam
+
+                }
+                if (dist <= SIMILARITY_THRESHOLD) result.add(j)
+            }
         }
+        return result
+    }
 
     /**
      * Cosine distance = 1 − cosine_similarity.
